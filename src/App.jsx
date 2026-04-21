@@ -70,6 +70,7 @@ export default function App() {
     saveToHistory(code, title);
     setHistory(loadHistory());
     localStorage.setItem("playback_current_room", code);
+    localStorage.setItem("playback_current_user", name);
     setUserName(name); setRoomCode(code); setRoomTitle(title); setRoomDuration(duration);
     setScreen("watch");
   };
