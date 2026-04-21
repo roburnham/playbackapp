@@ -69,6 +69,7 @@ export default function App() {
   const enterRoom = (code, title, name, duration) => {
     saveToHistory(code, title);
     setHistory(loadHistory());
+    localStorage.setItem("playback_current_room", code);
     setUserName(name); setRoomCode(code); setRoomTitle(title); setRoomDuration(duration);
     setScreen("watch");
   };
