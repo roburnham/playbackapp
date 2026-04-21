@@ -22,6 +22,7 @@ async function apiPost(path, body) {
 }
 
 const COLORS = ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF","#C77DFF","#FF9F43","#48DBFB","#FF9FF3"];
+const REACTIONS = ["😍","😭","😂","😱"];
 function getColor(name) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
@@ -31,16 +32,6 @@ function formatTime(s) {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return `${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
-}
-
-function getHotSegments(comments, maxTime) {
-  const WINDOW = 5 * 60;
-  const segments = [];
-  for (let t = 0; t < maxTime; t += WINDOW) {
-    const inWindow = comments.filter(c => c.timestamp >= t && c.timestamp < t + WINDOW);
-    if (inWindow.length >= 2) segments.push({ start: t, end: Math.min(t + WINDOW, maxTime), count: inWindow.length });
-  }
-  return segments;
 }
 
 function loadHistory() {
@@ -322,7 +313,16 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
 
   const MAX_TIME = maxTime;
   const visibleComments = comments.filter(c => c.timestamp <= time);
-  const hotSegments = getHotSegments(comments, MAX_TIME);
+
+  const postReaction = async (emoji) => {
+    const comment = {
+      id: Date.now().toString(), room_id: roomCode,
+      user_name: userName, text: emoji,
+      timestamp: time, color: getColor(userName),
+    };
+    await apiPost("comments", comment);
+    await fetchComments();
+  };
 
   return (
     <div style={{minHeight:"100vh",background:"#0a0a0f",fontFamily:"'Courier New', monospace",display:"flex",flexDirection:"column",maxWidth:"600px",margin:"0 auto"}}>
@@ -371,17 +371,6 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
 
             {/* Scrubber */}
             <div style={{position:"relative",marginBottom:"8px",padding:"10px 0"}}>
-              {hotSegments.map((seg, i) => (
-                <div key={i} style={{
-                  position:"absolute",
-                  left:`${(seg.start/MAX_TIME)*100}%`,
-                  width:`${((seg.end-seg.start)/MAX_TIME)*100}%`,
-                  top:"50%", transform:"translateY(-50%)",
-                  height:"8px", borderRadius:"4px",
-                  background:"rgba(255,107,107,0.3)",
-                  pointerEvents:"none", zIndex:1,
-                }} />
-              ))}
               <div style={{position:"absolute",top:"50%",left:0,right:0,transform:"translateY(-50%)",pointerEvents:"none",height:"3px",zIndex:2}}>
                 {comments.map(c => (
                   <div key={c.id} style={{
@@ -399,12 +388,6 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                 style={{width:"100%",cursor:"pointer",accentColor:"#FFD93D",position:"relative",zIndex:3}} />
             </div>
 
-            {hotSegments.length > 0 && (
-              <div style={{fontSize:"10px",color:"#FF6B6B",letterSpacing:"1px",textAlign:"center",marginBottom:"16px"}}>
-                🔥 Tramos calientes: {hotSegments.map(s => formatTime(s.start)).join(" · ")}
-              </div>
-            )}
-
             <div style={{display:"flex",gap:"12px",justifyContent:"center"}}>
               <button onClick={() => seek(time - 10)} style={ctrlBtn}>−10s</button>
               <button onClick={handlePlayPause}
@@ -421,29 +404,48 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                 Los comentarios aparecerán cuando llegues a su momento…
               </div>
             )}
-            {visibleComments.map(c => (
-              <div key={c.id} style={{display:"flex",gap:"10px",alignItems:"flex-start",animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
-                <div style={{width:"28px",height:"28px",borderRadius:"50%",background:c.color,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:"#000"}}>
-                  {c.user_name[0].toUpperCase()}
+            {visibleComments.map(c => {
+              const isReaction = REACTIONS.includes(c.text);
+              return isReaction ? (
+                <div key={c.id} style={{display:"flex",alignItems:"center",gap:"8px",animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
+                  <span style={{fontSize:"22px"}}>{c.text}</span>
+                  <span style={{fontSize:"10px",color:c.color,fontWeight:"700"}}>{c.user_name}</span>
+                  <span style={{fontSize:"10px",color:"#444",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
                 </div>
-                <div style={{flex:1}}>
-                  <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"3px"}}>
-                    <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
-                    <span style={{fontSize:"10px",color:"#444",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
+              ) : (
+                <div key={c.id} style={{display:"flex",gap:"10px",alignItems:"flex-start",animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
+                  <div style={{width:"28px",height:"28px",borderRadius:"50%",background:c.color,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:"#000"}}>
+                    {c.user_name[0].toUpperCase()}
                   </div>
-                  <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"3px"}}>
+                      <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
+                      <span style={{fontSize:"10px",color:"#444",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
+                    </div>
+                    <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div style={{padding:"16px 20px",borderTop:"1px solid #1a1a1a",display:"flex",gap:"10px"}}>
-            <div style={{fontSize:"10px",color:"#444",alignSelf:"center",whiteSpace:"nowrap",letterSpacing:"1px"}}>{formatTime(time)}</div>
-            <input ref={inputRef} style={{...inputStyle,flex:1,margin:0}}
-              placeholder="Comenta en este momento…"
-              value={newComment} onChange={e => setNewComment(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && postComment()} />
-            <button onClick={postComment} style={{...btnStyle,background:"#FFD93D",color:"#000",padding:"8px 14px",flexShrink:0,width:"auto"}}>→</button>
+          <div style={{padding:"12px 20px",borderTop:"1px solid #1a1a1a",display:"flex",flexDirection:"column",gap:"8px"}}>
+            <div style={{display:"flex",gap:"6px"}}>
+              {REACTIONS.map(emoji => (
+                <button key={emoji} onClick={() => postReaction(emoji)}
+                  style={{background:"#111",border:"1px solid #222",borderRadius:"6px",padding:"6px 12px",fontSize:"16px",cursor:"pointer",flex:1}}>
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <div style={{display:"flex",gap:"10px"}}>
+              <div style={{fontSize:"10px",color:"#444",alignSelf:"center",whiteSpace:"nowrap",letterSpacing:"1px"}}>{formatTime(time)}</div>
+              <input ref={inputRef} style={{...inputStyle,flex:1,margin:0}}
+                placeholder="Comenta en este momento…"
+                value={newComment} onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && postComment()} />
+              <button onClick={postComment} style={{...btnStyle,background:"#FFD93D",color:"#000",padding:"8px 14px",flexShrink:0,width:"auto"}}>→</button>
+            </div>
           </div>
         </>
       )}
@@ -456,23 +458,6 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
             </div>
           ) : (
             <>
-              {hotSegments.length > 0 && (
-                <div style={{marginBottom:"24px",padding:"14px 16px",background:"#1a0a0a",border:"1px solid #3a1a1a",borderRadius:"8px"}}>
-                  <div style={{fontSize:"10px",letterSpacing:"3px",color:"#FF6B6B",marginBottom:"10px"}}>🔥 MOMENTOS CALIENTES</div>
-                  {hotSegments.map((seg, i) => (
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"6px"}}>
-                      <span style={{fontSize:"11px",color:"#FF6B6B",letterSpacing:"1px"}}>{formatTime(seg.start)}–{formatTime(seg.end)}</span>
-                      <span style={{fontSize:"11px",color:"#666"}}>{seg.count} comentarios</span>
-                      <div style={{display:"flex",gap:"2px"}}>
-                        {Array.from({length:seg.count}).map((_,j) => (
-                          <div key={j} style={{width:"6px",height:"6px",borderRadius:"50%",background:"#FF6B6B",opacity:0.7}} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
                 <div style={{fontSize:"10px",letterSpacing:"3px",color:"#333"}}>
                   TODOS LOS COMENTARIOS · {comments.length} en total
@@ -485,21 +470,23 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
 
               <div style={{display:"flex",flexDirection:"column"}}>
                 {comments.map((c, i) => {
-                  const isHot = hotSegments.some(s => c.timestamp >= s.start && c.timestamp < s.end);
+                  const isReaction = REACTIONS.includes(c.text);
                   return (
                     <div key={c.id} style={{display:"flex",gap:"0",position:"relative"}}>
                       <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"40px",flexShrink:0}}>
                         <div style={{width:"2px",flex:"0 0 12px",background:i===0?"transparent":"#1a1a1a"}}></div>
-                        <div style={{width:"10px",height:"10px",borderRadius:"50%",background:isHot?"#FF6B6B":c.color,flexShrink:0,boxShadow:isHot?"0 0 8px #FF6B6B":"none"}}></div>
+                        <div style={{width:"10px",height:"10px",borderRadius:"50%",background:c.color,flexShrink:0}}></div>
                         <div style={{width:"2px",flex:1,minHeight:"20px",background:i===comments.length-1?"transparent":"#1a1a1a"}}></div>
                       </div>
                       <div style={{flex:1,padding:"0 0 20px 12px"}}>
                         <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"4px"}}>
                           <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
                           <span style={{fontSize:"10px",color:"#555",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
-                          {isHot && <span style={{fontSize:"9px",color:"#FF6B6B"}}>🔥</span>}
                         </div>
-                        <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
+                        {isReaction
+                          ? <span style={{fontSize:"20px"}}>{c.text}</span>
+                          : <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
+                        }
                       </div>
                     </div>
                   );
