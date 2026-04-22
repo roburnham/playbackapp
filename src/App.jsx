@@ -20,6 +20,13 @@ async function apiPost(path, body) {
   });
   return res.json();
 }
+async function apiUpsert(path, body) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: "POST",
+    headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+    body: JSON.stringify(body),
+  });
+}
 
 const COLORS = ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF","#C77DFF","#FF9F43","#48DBFB","#FF9FF3"];
 const REACTIONS = ["😍","😭","😂","😱"];
@@ -213,9 +220,12 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
   const [seenIds, setSeenIds] = useState(new Set());
   const [newVisible, setNewVisible] = useState([]);
   const [tab, setTab] = useState("watch");
+  const [presence, setPresence] = useState([]);
   const intervalRef = useRef(null);
   const feedRef = useRef(null);
   const inputRef = useRef(null);
+  const timeRef = useRef(0);
+  const playingRef = useRef(false);
   const TIMER_KEY = `playback_timer_${roomCode}`;
 
   const fetchComments = useCallback(async () => {
@@ -270,6 +280,29 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
+
+  // Mantener refs actualizados para leerlos desde el intervalo sin closure stale
+  useEffect(() => { timeRef.current = time; }, [time]);
+  useEffect(() => { playingRef.current = playing; }, [playing]);
+
+  // Publicar posición propia y leer la de los demás cada 5s
+  useEffect(() => {
+    const sync = async () => {
+      await apiUpsert("presence", {
+        room_id: roomCode,
+        user_name: userName,
+        color: getColor(userName),
+        time: Math.floor(timeRef.current),
+        playing: playingRef.current,
+        updated_at: new Date().toISOString(),
+      });
+      const data = await apiGet(`presence?room_id=eq.${roomCode}`);
+      if (Array.isArray(data)) setPresence(data.filter(p => p.user_name !== userName));
+    };
+    sync();
+    const poll = setInterval(sync, 5000);
+    return () => clearInterval(poll);
+  }, [roomCode, userName]);
 
   const handlePlayPause = () => {
     if (playing) {
@@ -371,8 +404,40 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
               </div>
             </div>
 
+            {/* Presencia: leyenda de usuarios */}
+            {presence.length > 0 && (
+              <div style={{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"12px"}}>
+                {presence.map(p => (
+                  <div key={p.user_name} style={{display:"flex",alignItems:"center",gap:"5px",background:"#111",border:`1px solid ${p.color}22`,borderRadius:"20px",padding:"3px 8px 3px 4px"}}>
+                    <div style={{width:"18px",height:"18px",borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"9px",fontWeight:"700",color:"#000"}}>
+                      {p.user_name[0].toUpperCase()}
+                    </div>
+                    <span style={{fontSize:"10px",color:p.color,letterSpacing:"0.5px"}}>{p.user_name}</span>
+                    <span style={{fontSize:"10px",color:"#555",letterSpacing:"1px"}}>{formatTime(p.time)}</span>
+                    {p.playing && <span style={{fontSize:"8px",color:"#6BCB77"}}>▶</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Scrubber */}
             <div style={{position:"relative",marginBottom:"8px",padding:"10px 0"}}>
+              {/* Marcadores de presencia (encima del track) */}
+              <div style={{position:"absolute",top:0,left:0,right:0,pointerEvents:"none",height:"12px",zIndex:4}}>
+                {presence.map(p => (
+                  <div key={p.user_name} style={{
+                    position:"absolute",
+                    left:`${Math.min((p.time/MAX_TIME)*100,100)}%`,
+                    transform:"translateX(-50%)",
+                    transition:"left 1s linear",
+                  }} title={`${p.user_name} · ${formatTime(p.time)}`}>
+                    <div style={{width:"16px",height:"16px",borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"8px",fontWeight:"700",color:"#000",boxShadow:`0 0 6px ${p.color}88`}}>
+                      {p.user_name[0].toUpperCase()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Marcadores de comentarios */}
               <div style={{position:"absolute",top:"50%",left:0,right:0,transform:"translateY(-50%)",pointerEvents:"none",height:"3px",zIndex:2}}>
                 {comments.map(c => (
                   <div key={c.id} style={{
