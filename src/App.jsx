@@ -27,6 +27,13 @@ async function apiUpsert(path, body) {
     body: JSON.stringify(body),
   });
 }
+async function apiPatch(path, body) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: "PATCH",
+    headers: { ...headers, "Prefer": "return=minimal" },
+    body: JSON.stringify(body),
+  });
+}
 
 const COLORS = ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF","#C77DFF","#FF9F43","#48DBFB","#FF9FF3"];
 const REACTIONS = ["😍","😭","😂","😱"];
@@ -208,7 +215,15 @@ function shareCode(code, title, commentCount) {
 
 function shareTimeline(code, title, comments) {
   const lines = [`🎬 *Playback · ${title}* (sala ${code})`, `💬 ${comments.length} comentarios`, ""];
-  comments.forEach(c => lines.push(`${formatTime(c.timestamp)}  ${c.user_name}: ${c.text}`));
+  const parts = [...new Set(comments.map(c => c.part || 1))].sort((a, b) => a - b);
+  const multi = parts.length > 1;
+  parts.forEach(part => {
+    if (multi) lines.push(`── Parte ${part} ──`);
+    comments.filter(c => (c.part || 1) === part).forEach(c =>
+      lines.push(`${formatTime(c.timestamp)}  ${c.user_name}: ${c.text}`)
+    );
+    if (multi) lines.push("");
+  });
   window.open(`https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
 }
 
@@ -226,10 +241,12 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
   const inputRef = useRef(null);
   const timeRef = useRef(0);
   const playingRef = useRef(false);
+  const [currentPart, setCurrentPart] = useState(1);
+  const currentPartRef = useRef(1);
   const TIMER_KEY = `playback_timer_${roomCode}`;
 
   const fetchComments = useCallback(async () => {
-    const data = await apiGet(`comments?room_id=eq.${roomCode}&order=timestamp.asc`);
+    const data = await apiGet(`comments?room_id=eq.${roomCode}&order=part.asc,timestamp.asc`);
     if (Array.isArray(data)) setComments(data);
   }, [roomCode]);
 
@@ -238,6 +255,26 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     const poll = setInterval(fetchComments, 3000);
     return () => clearInterval(poll);
   }, [fetchComments]);
+
+  const fetchRoom = useCallback(async () => {
+    const data = await apiGet(`rooms?id=eq.${roomCode}&select=current_part`);
+    if (Array.isArray(data) && data[0]) {
+      const newPart = data[0].current_part || 1;
+      if (newPart !== currentPartRef.current) {
+        currentPartRef.current = newPart;
+        setCurrentPart(newPart);
+        localStorage.removeItem(TIMER_KEY);
+        setTime(0);
+        setPlaying(false);
+      }
+    }
+  }, [roomCode]);
+
+  useEffect(() => {
+    fetchRoom();
+    const poll = setInterval(fetchRoom, 3000);
+    return () => clearInterval(poll);
+  }, [fetchRoom]);
 
   // Restaurar temporizador al montar (por si el usuario volvió)
   useEffect(() => {
@@ -322,8 +359,18 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     }
   };
 
+  const changePart = async (newPart) => {
+    if (newPart < 1) return;
+    await apiPatch(`rooms?id=eq.${roomCode}`, { current_part: newPart });
+    currentPartRef.current = newPart;
+    setCurrentPart(newPart);
+    localStorage.removeItem(TIMER_KEY);
+    setTime(0);
+    setPlaying(false);
+  };
+
   useEffect(() => {
-    const visible = comments.filter(c => c.timestamp <= time);
+    const visible = comments.filter(c => (c.part || 1) === currentPart && c.timestamp <= time);
     const newOnes = visible.filter(c => !seenIds.has(c.id));
     if (newOnes.length > 0) {
       setSeenIds(prev => new Set([...prev, ...newOnes.map(c => c.id)]));
@@ -331,14 +378,14 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
       setTimeout(() => setNewVisible([]), 2000);
       setTimeout(() => { if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight; }, 50);
     }
-  }, [comments, time]);
+  }, [comments, time, currentPart]);
 
   const postComment = async () => {
     if (!newComment.trim()) return;
     const comment = {
       id: Date.now().toString(), room_id: roomCode,
       user_name: userName, text: newComment.trim(),
-      timestamp: time, color: getColor(userName),
+      timestamp: time, color: getColor(userName), part: currentPart,
     };
     setNewComment("");
     await apiPost("comments", comment);
@@ -347,13 +394,15 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
   };
 
   const MAX_TIME = maxTime;
-  const visibleComments = comments.filter(c => c.timestamp <= time);
+  const visibleComments = comments.filter(c => (c.part || 1) === currentPart && c.timestamp <= time);
+  const commentParts = [...new Set(comments.map(c => c.part || 1))].sort((a, b) => a - b);
+  const multiPart = commentParts.length > 1 || currentPart > 1;
 
   const postReaction = async (emoji) => {
     const comment = {
       id: Date.now().toString(), room_id: roomCode,
       user_name: userName, text: emoji,
-      timestamp: time, color: getColor(userName),
+      timestamp: time, color: getColor(userName), part: currentPart,
     };
     await apiPost("comments", comment);
     await fetchComments();
@@ -367,6 +416,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
         <div>
           <div style={{fontSize:"11px",letterSpacing:"3px",color:"#555",display:"flex",alignItems:"center",gap:"8px"}}>
             SALA <span style={{color:"#FFD93D"}}>{roomCode}</span>
+            {multiPart && <span style={{color:"#888"}}>· P{currentPart}</span>}
             <button onClick={() => shareCode(roomCode, roomTitle, comments.length)} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontSize:"13px",lineHeight:1}} title="Compartir código por WhatsApp">📲</button>
           </div>
           <div style={{fontSize:"16px",fontWeight:"700",color:"#fff",marginTop:"2px"}}>{roomTitle}</div>
@@ -463,6 +513,13 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
               </button>
               <button onClick={() => seek(time + 10)} style={ctrlBtn}>+10s</button>
             </div>
+            <div style={{display:"flex",gap:"8px",justifyContent:"center",marginTop:"10px",alignItems:"center"}}>
+              <button onClick={() => changePart(currentPart - 1)} disabled={currentPart <= 1}
+                style={{...ctrlBtn,opacity:currentPart<=1?0.3:1,fontSize:"10px",padding:"6px 10px"}}>← P{currentPart - 1}</button>
+              <span style={{fontSize:"10px",color:"#555",letterSpacing:"2px",padding:"0 6px"}}>PARTE {currentPart}</span>
+              <button onClick={() => changePart(currentPart + 1)}
+                style={{...ctrlBtn,fontSize:"10px",padding:"6px 10px"}}>P{currentPart + 1} →</button>
+            </div>
           </div>
 
           <div ref={feedRef} style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:"10px",minHeight:"200px",maxHeight:"320px"}}>
@@ -536,25 +593,39 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
               </div>
 
               <div style={{display:"flex",flexDirection:"column"}}>
-                {comments.map((c, i) => {
-                  const isReaction = REACTIONS.includes(c.text);
+                {commentParts.map(part => {
+                  const pc = comments.filter(c => (c.part || 1) === part);
                   return (
-                    <div key={c.id} style={{display:"flex",gap:"0",position:"relative"}}>
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"40px",flexShrink:0}}>
-                        <div style={{width:"2px",flex:"0 0 12px",background:i===0?"transparent":"#1a1a1a"}}></div>
-                        <div style={{width:"10px",height:"10px",borderRadius:"50%",background:c.color,flexShrink:0}}></div>
-                        <div style={{width:"2px",flex:1,minHeight:"20px",background:i===comments.length-1?"transparent":"#1a1a1a"}}></div>
-                      </div>
-                      <div style={{flex:1,padding:"0 0 20px 12px"}}>
-                        <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"4px"}}>
-                          <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
-                          <span style={{fontSize:"10px",color:"#555",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
+                    <div key={part}>
+                      {multiPart && (
+                        <div style={{display:"flex",alignItems:"center",gap:"10px",margin:"8px 0 12px",opacity:0.5}}>
+                          <div style={{flex:1,height:"1px",background:"#1a1a1a"}}></div>
+                          <span style={{fontSize:"10px",letterSpacing:"3px",color:"#FFD93D"}}>PARTE {part}</span>
+                          <div style={{flex:1,height:"1px",background:"#1a1a1a"}}></div>
                         </div>
-                        {isReaction
-                          ? <span style={{fontSize:"20px"}}>{c.text}</span>
-                          : <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
-                        }
-                      </div>
+                      )}
+                      {pc.map((c, i) => {
+                        const isReaction = REACTIONS.includes(c.text);
+                        return (
+                          <div key={c.id} style={{display:"flex",gap:"0",position:"relative"}}>
+                            <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"40px",flexShrink:0}}>
+                              <div style={{width:"2px",flex:"0 0 12px",background:i===0?"transparent":"#1a1a1a"}}></div>
+                              <div style={{width:"10px",height:"10px",borderRadius:"50%",background:c.color,flexShrink:0}}></div>
+                              <div style={{width:"2px",flex:1,minHeight:"20px",background:i===pc.length-1?"transparent":"#1a1a1a"}}></div>
+                            </div>
+                            <div style={{flex:1,padding:"0 0 20px 12px"}}>
+                              <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"4px"}}>
+                                <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
+                                <span style={{fontSize:"10px",color:"#555",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
+                              </div>
+                              {isReaction
+                                ? <span style={{fontSize:"20px"}}>{c.text}</span>
+                                : <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
+                              }
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
