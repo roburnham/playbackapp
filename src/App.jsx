@@ -258,8 +258,8 @@ export default function App() {
   );
 }
 
-function shareComment(c, title, code) {
-  const text = `🎬 ${title} · ${formatTime(c.timestamp)}\n"${c.text}"\n— ${c.user_name}\n\n💬 playbackparty.netlify.app · sala ${code}`;
+function shareComment(c, title) {
+  const text = `🎬 ${title} · ${formatTime(c.timestamp)}\n"${c.text}"\n— ${c.user_name}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
 }
 
@@ -608,6 +608,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                     </span>
                     <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
                     <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
+                    <button onClick={() => shareComment(c, roomTitle)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"13px", padding:"0 2px", lineHeight:1}} title="Compartir por WhatsApp">↗</button>
                   </div>
                   <div style={{fontSize:"14px", color:T.ink, lineHeight:"1.35", paddingLeft:"30px"}}>{c.text}</div>
                 </div>
@@ -677,7 +678,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                           <div style={{display:"flex", alignItems:"center", gap:"8px", marginBottom:"2px"}}>
                             <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
                             <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
-                            <button onClick={() => shareComment(c, roomTitle, roomCode)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"13px", padding:"0 2px", lineHeight:1}} title="Compartir por WhatsApp">↗</button>
+                            <button onClick={() => shareComment(c, roomTitle)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"13px", padding:"0 2px", lineHeight:1}} title="Compartir por WhatsApp">↗</button>
                           </div>
                           {isReaction
                             ? <span style={{fontSize:"20px"}}>{c.text}</span>
