@@ -258,6 +258,11 @@ export default function App() {
   );
 }
 
+function shareComment(c, title, code) {
+  const text = `🎬 ${title} · ${formatTime(c.timestamp)}\n"${c.text}"\n— ${c.user_name}\n\n💬 playbackparty.netlify.app · sala ${code}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+}
+
 function shareCode(code, title, commentCount) {
   const text = `🎬 Playback · ${title}\n💬 ${commentCount} comentarios\nÚnete a la sala con el código: *${code}*`;
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
@@ -672,6 +677,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                           <div style={{display:"flex", alignItems:"center", gap:"8px", marginBottom:"2px"}}>
                             <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
                             <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
+                            <button onClick={() => shareComment(c, roomTitle, roomCode)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"13px", padding:"0 2px", lineHeight:1}} title="Compartir por WhatsApp">↗</button>
                           </div>
                           {isReaction
                             ? <span style={{fontSize:"20px"}}>{c.text}</span>
