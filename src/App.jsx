@@ -61,6 +61,19 @@ function removeFromHistory(code) {
   localStorage.setItem("playback_history", JSON.stringify(history));
 }
 
+const T = {
+  paper:     "#f6e8d8",
+  paperDeep: "#ecd9c2",
+  ink:       "#2a1a2e",
+  ink2:      "#4a2f4f",
+  muted:     "#8e6f86",
+  rule:      "rgba(42,26,46,0.18)",
+  magenta:   "#e0306b",
+  cyan:      "#2aa5b8",
+  yellow:    "#f2b950",
+  green:     "#a8c66f",
+};
+
 export default function App() {
   const [screen, setScreen] = useState("home");
   const [userName, setUserName] = useState("");
@@ -73,10 +86,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState(loadHistory());
   const [roomDuration, setRoomDuration] = useState(5400);
+  const [homeTab, setHomeTab] = useState("unirse");
 
   const DURATIONS = [
+    { label: "30 min", value: 1800 },
     { label: "1 h",    value: 3600 },
-    { label: "1 h 30", value: 5400 },
+    { label: "1.5 h",  value: 5400 },
     { label: "2 h",    value: 7200 },
   ];
 
@@ -128,82 +143,117 @@ export default function App() {
   );
 
   return (
-    <div style={{minHeight:"100vh",background:"#0a0a0f",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Courier New', monospace",padding:"20px"}}>
-      <div style={{width:"100%",maxWidth:"420px"}}>
-        <div style={{textAlign:"center",marginBottom:"48px"}}>
-          <div style={{fontSize:"13px",letterSpacing:"6px",color:"#555",textTransform:"uppercase",marginBottom:"8px"}}>watch together</div>
-          <div style={{fontSize:"42px",fontWeight:"900",color:"#fff",letterSpacing:"-2px",lineHeight:1}}>
-            play<span style={{color:"#FFD93D"}}>back</span>
+    <div style={{minHeight:"100vh", background:T.paper, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Familjen Grotesk', system-ui, sans-serif", padding:"20px"}}>
+      <div style={{width:"100%", maxWidth:"440px"}}>
+
+        {/* Logo */}
+        <div style={{textAlign:"center", marginBottom:"40px"}}>
+          <div style={{fontFamily:"'VT323', monospace", fontSize:"14px", letterSpacing:"0.32em", color:T.muted, textTransform:"lowercase", marginBottom:"4px"}}>
+            watch together
           </div>
-          <div style={{fontSize:"12px",color:"#444",marginTop:"8px",letterSpacing:"2px"}}>comentarios sincrónicos · sin spoilers</div>
+          <div className="vhsx-glitch" style={{fontFamily:"'Bungee', sans-serif", fontSize:"48px", lineHeight:1, color:T.ink, letterSpacing:"-0.01em"}}>
+            play<span style={{color:T.magenta}}>back</span>
+          </div>
+          <div style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted, marginTop:"6px", letterSpacing:"0.18em"}}>
+            comentarios sincrónicos · sin spoilers
+          </div>
         </div>
 
-        <div style={{marginBottom:"24px"}}>
-          <label style={labelStyle}>tu nombre</label>
-          <input style={inputStyle} placeholder="¿Cómo te llamas?" value={userNameInput}
+        {/* Nombre */}
+        <div style={{marginBottom:"16px"}}>
+          <div style={labelStyle}>tu nombre</div>
+          <input style={inputStyle} placeholder="¿cómo te llamas?" value={userNameInput}
             onChange={e => { setUserNameInput(e.target.value); setError(""); }} />
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"16px"}}>
-          <div style={cardStyle}>
-            <div style={{fontSize:"11px",letterSpacing:"3px",color:"#FFD93D",marginBottom:"12px"}}>CREAR SALA</div>
-            <input style={{...inputStyle,marginBottom:"12px"}} placeholder="Título de la serie"
+        {/* Tabs Unirse / Crear sala */}
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", border:`2px solid ${T.ink}`, boxShadow:`3px 3px 0 ${T.ink}`, marginBottom:"16px"}}>
+          {[["unirse","UNIRSE"],["crear","CREAR SALA"]].map(([key, label], i) => (
+            <button key={key} onClick={() => setHomeTab(key)} style={{
+              padding:"11px 0",
+              background: homeTab === key ? T.yellow : T.paper,
+              color: T.ink,
+              border: "none",
+              borderRight: i === 0 ? `2px solid ${T.ink}` : "none",
+              fontFamily:"'Bungee', sans-serif",
+              fontSize:"16px",
+              letterSpacing:"0.04em",
+              textTransform:"uppercase",
+              cursor:"pointer",
+            }}>{label}</button>
+          ))}
+        </div>
+
+        {homeTab === "unirse" && (
+          <div>
+            <div style={labelStyle}>código de sala</div>
+            <input style={{...inputStyle, fontFamily:"'VT323', monospace", fontSize:"22px", textAlign:"center", letterSpacing:"0.42em", textTransform:"uppercase", marginBottom:"14px"}}
+              placeholder="X X X X X" value={roomCodeInput}
+              onChange={e => { setRoomCodeInput(e.target.value.toUpperCase()); setError(""); }} maxLength={5} />
+            <button style={{...btnStyle, background:T.yellow, color:T.ink}} onClick={handleJoin} disabled={loading}>
+              {loading ? "buscando…" : "conectar →"}
+            </button>
+          </div>
+        )}
+
+        {homeTab === "crear" && (
+          <div>
+            <div style={labelStyle}>título de la serie</div>
+            <input style={{...inputStyle, marginBottom:"4px"}} placeholder="Ej: Breaking Bad"
               value={roomTitleInput} onChange={e => { setRoomTitleInput(e.target.value); setError(""); }} />
-            <div style={{display:"flex",flexWrap:"wrap",gap:"4px",marginBottom:"12px"}}>
-              {DURATIONS.map(d => (
+            <div style={labelStyle}>duración</div>
+            <div style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"6px", marginBottom:"14px"}}>
+              {DURATIONS.map((d, i) => (
                 <button key={d.value} onClick={() => setRoomDuration(d.value)} style={{
-                  background: roomDuration === d.value ? "#FFD93D" : "#1a1a1a",
-                  color: roomDuration === d.value ? "#000" : "#555",
-                  border: "1px solid " + (roomDuration === d.value ? "#FFD93D" : "#2a2a2a"),
-                  borderRadius:"4px", padding:"4px 7px", fontSize:"9px",
-                  letterSpacing:"1px", cursor:"pointer", fontFamily:"'Courier New', monospace",
+                  padding:"9px 0",
+                  background: roomDuration === d.value ? T.yellow : T.paper,
+                  color: T.ink,
+                  border: `2px solid ${T.ink}`,
+                  boxShadow: roomDuration === d.value ? `2px 2px 0 ${T.ink}` : "none",
+                  fontFamily:"'Familjen Grotesk', system-ui, sans-serif",
+                  fontSize:"13px", fontWeight:600,
+                  cursor:"pointer", borderRadius:0,
                 }}>{d.label}</button>
               ))}
             </div>
-            <button style={{...btnStyle,background:"#FFD93D",color:"#000"}} onClick={handleCreate} disabled={loading}>
-              {loading ? "..." : "Crear →"}
+            <button style={{...btnStyle, background:T.green, color:T.ink, fontFamily:"'Familjen Grotesk', system-ui, sans-serif", fontWeight:700, letterSpacing:"0.01em"}} onClick={handleCreate} disabled={loading}>
+              {loading ? "creando…" : "Crear sala →"}
             </button>
           </div>
-          <div style={cardStyle}>
-            <div style={{fontSize:"11px",letterSpacing:"3px",color:"#6BCB77",marginBottom:"12px"}}>UNIRSE</div>
-            <input style={{...inputStyle,marginBottom:"12px"}} placeholder="Código de sala"
-              value={roomCodeInput} onChange={e => { setRoomCodeInput(e.target.value.toUpperCase()); setError(""); }} maxLength={5} />
-            <button style={{...btnStyle,background:"#6BCB77",color:"#000"}} onClick={handleJoin} disabled={loading}>
-              {loading ? "..." : "Entrar →"}
-            </button>
-          </div>
-        </div>
+        )}
 
-        {error && <div style={{marginTop:"16px",color:"#FF6B6B",fontSize:"12px",textAlign:"center",letterSpacing:"1px"}}>{error}</div>}
+        {error && <div style={{marginTop:"12px", color:T.magenta, fontFamily:"'VT323', monospace", fontSize:"14px", textAlign:"center", letterSpacing:"0.1em"}}>{error}</div>}
 
         {history.length > 0 && (
           <div style={{marginTop:"32px"}}>
-            <div style={{fontSize:"10px",letterSpacing:"3px",color:"#333",marginBottom:"12px"}}>SALAS RECIENTES</div>
-            <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+            <div style={{fontFamily:"'VT323', monospace", fontSize:"13px", letterSpacing:"0.18em", color:T.ink2, textTransform:"lowercase", marginBottom:"10px"}}>salas recientes</div>
+            <div style={{display:"flex", flexDirection:"column", gap:"8px"}}>
               {history.map(item => (
                 <div key={item.code} onClick={() => handleRejoin(item)}
-                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"#0f0f16",border:"1px solid #1a1a1a",borderRadius:"8px",padding:"10px 14px",cursor:"pointer",transition:"border-color 0.2s"}}
-                  onMouseEnter={e => e.currentTarget.style.borderColor="#333"}
-                  onMouseLeave={e => e.currentTarget.style.borderColor="#1a1a1a"}>
-                  <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-                    <div style={{width:"6px",height:"6px",borderRadius:"50%",background:"#FFD93D",flexShrink:0}}></div>
+                  style={{display:"flex", alignItems:"center", justifyContent:"space-between", background:T.paperDeep, border:`2px solid ${T.ink}`, padding:"10px 14px", cursor:"pointer", boxShadow:`2px 2px 0 ${T.ink}`}}
+                  onMouseEnter={e => { e.currentTarget.style.background = T.paper; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = T.paperDeep; }}>
+                  <div style={{display:"flex", alignItems:"center", gap:"10px"}}>
+                    <div style={{width:"8px", height:"8px", background:T.magenta, flexShrink:0}}></div>
                     <div>
-                      <div style={{fontSize:"13px",color:"#ccc"}}>{item.title}</div>
-                      <div style={{fontSize:"10px",color:"#444",letterSpacing:"1px",marginTop:"2px"}}>{item.code}</div>
+                      <div style={{fontSize:"14px", color:T.ink, fontWeight:600}}>{item.title}</div>
+                      <div style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted, letterSpacing:"0.1em", marginTop:"1px"}}>{item.code}</div>
                     </div>
                   </div>
                   <button onClick={e => handleDeleteHistory(item.code, e)}
-                    style={{background:"none",border:"none",color:"#333",cursor:"pointer",fontSize:"14px",padding:"4px",lineHeight:1}}>×</button>
+                    style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"16px", padding:"4px", lineHeight:1}}>×</button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div style={{marginTop:"24px",fontSize:"11px",color:"#333",textAlign:"center",lineHeight:"1.8"}}>
-          Crea una sala · comparte el código · poneos el play · <span style={{color:"#FFD93D"}}>los comentarios aparecen solos</span>
+        <div style={{marginTop:"24px", paddingTop:"16px", borderTop:`1.5px dashed ${T.rule}`, fontFamily:"'Familjen Grotesk', system-ui, sans-serif", fontSize:"12px", color:T.ink2, textAlign:"center", lineHeight:"1.8"}}>
+          crea una sala · comparte el código · poneos el play · <span style={{color:T.magenta, fontWeight:600}}>los comentarios aparecen solos</span>
         </div>
       </div>
+
+      <style>{globalStyles}</style>
     </div>
   );
 }
@@ -276,7 +326,6 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     return () => clearInterval(poll);
   }, [fetchRoom]);
 
-  // Restaurar temporizador al montar (por si el usuario volvió)
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem(TIMER_KEY) || "null");
     if (saved) {
@@ -287,7 +336,6 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     }
   }, []);
 
-  // Tick: deriva el tiempo de Date.now() para ser preciso aunque la pestaña estuviera en segundo plano
   useEffect(() => {
     if (playing) {
       intervalRef.current = setInterval(() => {
@@ -304,7 +352,6 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     return () => clearInterval(intervalRef.current);
   }, [playing]);
 
-  // Sincronizar al volver a la pestaña
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState !== "visible") return;
@@ -318,11 +365,9 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  // Mantener refs actualizados para leerlos desde el intervalo sin closure stale
   useEffect(() => { timeRef.current = time; }, [time]);
   useEffect(() => { playingRef.current = playing; }, [playing]);
 
-  // Publicar posición propia y leer la de los demás cada 5s
   useEffect(() => {
     const sync = async () => {
       await apiUpsert("presence", {
@@ -408,248 +453,323 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     await fetchComments();
   };
 
+  const timeDisplay = formatTime(time);
+  const [mm, ss] = timeDisplay.split(":");
+
   return (
-    <div style={{minHeight:"100vh",background:"#0a0a0f",fontFamily:"'Courier New', monospace",display:"flex",flexDirection:"column",maxWidth:"600px",margin:"0 auto"}}>
+    <div style={{minHeight:"100vh", background:T.paper, fontFamily:"'Familjen Grotesk', system-ui, sans-serif", display:"flex", flexDirection:"column", maxWidth:"600px", margin:"0 auto"}}>
 
       {/* Header */}
-      <div style={{padding:"16px 20px",borderBottom:"1px solid #1a1a1a",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{padding:"10px 14px", borderBottom:`2px solid ${T.ink}`, background:T.paperDeep, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
         <div>
-          <div style={{fontSize:"11px",letterSpacing:"3px",color:"#555",display:"flex",alignItems:"center",gap:"8px"}}>
-            SALA <span style={{color:"#FFD93D"}}>{roomCode}</span>
-            {multiPart && <span style={{color:"#888"}}>· P{currentPart}</span>}
-            <button onClick={() => shareCode(roomCode, roomTitle, comments.length)} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontSize:"13px",lineHeight:1}} title="Compartir código por WhatsApp">📲</button>
+          <div style={{fontFamily:"'VT323', monospace", fontSize:"14px", letterSpacing:"0.18em", color:T.ink, display:"flex", alignItems:"center", gap:"8px", textTransform:"uppercase"}}>
+            SALA <span style={{color:T.magenta, fontWeight:"bold"}}>{roomCode}</span>
+            {multiPart && <span style={{color:T.muted}}>· P{currentPart}</span>}
+            <span style={{fontSize:"16px"}}>📼</span>
+            <button onClick={() => shareCode(roomCode, roomTitle, comments.length)} style={{background:"none", border:"none", padding:0, cursor:"pointer", fontSize:"14px", lineHeight:1}} title="Compartir por WhatsApp">📲</button>
           </div>
-          <div style={{fontSize:"16px",fontWeight:"700",color:"#fff",marginTop:"2px"}}>{roomTitle}</div>
+          <div style={{fontFamily:"'Bungee', sans-serif", fontSize:"20px", color:T.ink, marginTop:"2px", letterSpacing:"-0.005em", lineHeight:1.05}}>
+            {roomTitle}
+          </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:getColor(userName)}}></div>
-          <div style={{fontSize:"12px",color:"#888"}}>{userName}</div>
-          <button onClick={onExit} style={{background:"none",border:"1px solid #222",color:"#555",borderRadius:"4px",padding:"4px 8px",fontSize:"10px",cursor:"pointer",letterSpacing:"1px"}}>SALIR</button>
+        <div style={{display:"flex", alignItems:"center", gap:"8px"}}>
+          <span style={{display:"inline-flex", alignItems:"center", gap:"6px", background:T.paper, border:`1.5px solid ${T.ink}`, padding:"2px 8px", fontFamily:"'Familjen Grotesk', system-ui, sans-serif", fontSize:"12px", fontWeight:600}}>
+            <span style={{width:"8px", height:"8px", borderRadius:"50%", background:T.magenta, display:"inline-block"}}/>
+            {userName}
+          </span>
+          <button onClick={onExit} style={{padding:"4px 10px", background:T.paper, color:T.ink, border:`1.5px solid ${T.ink}`, fontFamily:"'VT323', monospace", fontSize:"13px", letterSpacing:"0.1em", cursor:"pointer", textTransform:"uppercase"}}>SALIR</button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{display:"flex",borderBottom:"1px solid #1a1a1a"}}>
-        {[["watch","▶ Ver"],["timeline","📋 Línea de tiempo"]].map(([t, label]) => (
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", borderBottom:`2px solid ${T.ink}`}}>
+        {[["watch","▶ VER"],["timeline","📃 LÍNEA DE TIEMPO"]].map(([t, label], i) => (
           <button key={t} onClick={() => setTab(t)} style={{
-            flex:1, background:"none", border:"none", padding:"12px",
-            fontSize:"10px", letterSpacing:"3px", cursor:"pointer",
-            color: tab === t ? "#FFD93D" : "#444",
-            borderBottom: tab === t ? "2px solid #FFD93D" : "2px solid transparent",
-            fontFamily:"'Courier New', monospace", textTransform:"uppercase",
-            transition:"color 0.2s",
+            padding:"12px 0",
+            background: tab === t ? T.paper : T.paperDeep,
+            color: tab === t ? T.ink : T.muted,
+            border: "none",
+            borderRight: i === 0 ? `2px solid ${T.ink}` : "none",
+            borderBottom: tab === t ? `3px solid ${T.yellow}` : "none",
+            fontFamily:"'VT323', monospace",
+            fontSize:"14px",
+            letterSpacing:"0.22em",
+            cursor:"pointer",
+            textTransform:"uppercase",
+            position:"relative",
+            top: tab === t ? 1 : 0,
           }}>{label}</button>
         ))}
       </div>
 
       {tab === "watch" && (
         <>
-          <div style={{padding:"24px 20px",borderBottom:"1px solid #1a1a1a",background:"#0d0d14"}}>
-            <div style={{textAlign:"center",marginBottom:"20px"}}>
-              <div style={{fontSize:"52px",fontWeight:"900",letterSpacing:"4px",color:playing?"#fff":"#444",fontVariantNumeric:"tabular-nums",transition:"color 0.3s"}}>
-                {formatTime(time)}
+          <div style={{padding:"18px 16px 12px", borderBottom:`2px solid ${T.ink}`, background:T.paper}}>
+
+            {/* Timer */}
+            <div style={{textAlign:"center", marginBottom:"8px"}}>
+              <div className="vhsx-glitch" style={{fontFamily:"'VT323', monospace", fontSize:"64px", lineHeight:0.95, color:T.ink, letterSpacing:"0.08em"}}>
+                {mm}<span style={{color:T.magenta}}>:</span>{ss}
               </div>
-              <div style={{fontSize:"11px",color:"#333",letterSpacing:"2px",marginTop:"4px"}}>
-                {playing ? <span style={{color:"#6BCB77"}}>▶ reproduciendo</span> : <span>⏸ pausado</span>}
+              <div style={{fontFamily:"'VT323', monospace", fontSize:"14px", color:T.muted, letterSpacing:"0.18em", marginTop:"4px"}}>
+                {playing
+                  ? <span>▶ reproduciendo</span>
+                  : <span className="vhsx-blink">‖ pausado</span>}
               </div>
             </div>
 
-            {/* Presencia: leyenda de usuarios */}
+            {/* Presencia */}
             {presence.length > 0 && (
-              <div style={{display:"flex",flexWrap:"wrap",gap:"8px",marginBottom:"12px"}}>
+              <div style={{display:"flex", flexWrap:"wrap", gap:"6px", marginBottom:"10px", justifyContent:"center"}}>
                 {presence.map(p => (
-                  <div key={p.user_name} style={{display:"flex",alignItems:"center",gap:"5px",background:"#111",border:`1px solid ${p.color}22`,borderRadius:"20px",padding:"3px 8px 3px 4px"}}>
-                    <div style={{width:"18px",height:"18px",borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"9px",fontWeight:"700",color:"#000"}}>
+                  <div key={p.user_name} style={{display:"flex", alignItems:"center", gap:"5px", background:T.paperDeep, border:`1.5px solid ${T.ink}`, padding:"2px 8px 2px 4px"}}>
+                    <div style={{width:"18px", height:"18px", borderRadius:"50%", background:T.cyan, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"9px", fontWeight:"700", color:T.ink, border:`1.5px solid ${T.ink}`}}>
                       {p.user_name[0].toUpperCase()}
                     </div>
-                    <span style={{fontSize:"10px",color:p.color,letterSpacing:"0.5px"}}>{p.user_name}</span>
-                    <span style={{fontSize:"10px",color:"#555",letterSpacing:"1px"}}>{formatTime(p.time)}</span>
-                    {p.playing && <span style={{fontSize:"8px",color:"#6BCB77"}}>▶</span>}
+                    <span style={{fontSize:"12px", color:T.ink, fontWeight:600}}>{p.user_name}</span>
+                    <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted, letterSpacing:"0.08em"}}>{formatTime(p.time)}</span>
+                    {p.playing && <span style={{fontSize:"10px", color:T.green}}>▶</span>}
                   </div>
                 ))}
               </div>
             )}
 
             {/* Scrubber */}
-            <div style={{position:"relative",marginBottom:"8px",padding:"10px 0"}}>
-              {/* Marcadores de presencia (encima del track) */}
-              <div style={{position:"absolute",top:0,left:0,right:0,pointerEvents:"none",height:"12px",zIndex:4}}>
+            <div style={{position:"relative", marginBottom:"8px"}}>
+              <div style={{position:"relative", height:"14px", background:T.paperDeep, border:`2px solid ${T.ink}`, boxShadow:`2px 2px 0 ${T.ink}`, overflow:"visible"}}>
+                {/* fill */}
+                <div style={{position:"absolute", top:0, left:0, height:"100%", width:`${Math.min((time/MAX_TIME)*100,100)}%`, background:`repeating-linear-gradient(45deg, ${T.yellow} 0 6px, ${T.ink} 6px 8px)`, borderRight:`2px solid ${T.ink}`}}/>
+                {/* comment markers */}
+                {comments.filter(c => (c.part||1) === currentPart).map(c => (
+                  <div key={c.id} style={{position:"absolute", top:-3, height:"20px", width:"2px", left:`${Math.min((c.timestamp/MAX_TIME)*100,100)}%`, background:T.cyan, zIndex:2}} title={`${formatTime(c.timestamp)} · ${c.user_name}`}/>
+                ))}
+                {/* presence markers */}
                 {presence.map(p => (
-                  <div key={p.user_name} style={{
-                    position:"absolute",
-                    left:`${Math.min((p.time/MAX_TIME)*100,100)}%`,
-                    transform:"translateX(-50%)",
-                    transition:"left 1s linear",
-                  }} title={`${p.user_name} · ${formatTime(p.time)}`}>
-                    <div style={{width:"16px",height:"16px",borderRadius:"50%",background:p.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"8px",fontWeight:"700",color:"#000",boxShadow:`0 0 6px ${p.color}88`}}>
+                  <div key={p.user_name} style={{position:"absolute", top:-4, left:`${Math.min((p.time/MAX_TIME)*100,100)}%`, transform:"translateX(-50%)", zIndex:3, transition:"left 1s linear"}}>
+                    <div style={{width:"16px", height:"16px", borderRadius:"50%", background:T.cyan, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"8px", fontWeight:"700", color:T.ink, border:`1.5px solid ${T.ink}`}}>
                       {p.user_name[0].toUpperCase()}
                     </div>
                   </div>
                 ))}
-              </div>
-              {/* Marcadores de comentarios */}
-              <div style={{position:"absolute",top:"50%",left:0,right:0,transform:"translateY(-50%)",pointerEvents:"none",height:"3px",zIndex:2}}>
-                {comments.map(c => (
-                  <div key={c.id} style={{
-                    position:"absolute", top:"-3px",
-                    left:`${Math.min((c.timestamp/MAX_TIME)*100,100)}%`,
-                    width:"9px", height:"9px", borderRadius:"50%",
-                    background: c.timestamp <= time ? c.color : "#333",
-                    transform:"translateX(-50%)", transition:"background 0.5s",
-                    boxShadow: c.timestamp <= time ? `0 0 6px ${c.color}` : "none",
-                  }} title={`${formatTime(c.timestamp)} · ${c.user_name}`} />
-                ))}
+                {/* scrubber thumb */}
+                <div style={{position:"absolute", top:"-6px", left:`${Math.min((time/MAX_TIME)*100,100)}%`, transform:"translateX(-50%)", width:"14px", height:"26px", background:T.magenta, border:`2px solid ${T.ink}`, zIndex:4}}/>
               </div>
               <input type="range" min={0} max={MAX_TIME} step={1} value={Math.floor(time)}
                 onChange={e => { localStorage.removeItem(TIMER_KEY); setPlaying(false); setTime(Number(e.target.value)); }}
-                style={{width:"100%",cursor:"pointer",accentColor:"#FFD93D",position:"relative",zIndex:3}} />
+                style={{position:"absolute", top:0, left:0, width:"100%", height:"14px", opacity:0, cursor:"pointer", zIndex:5, margin:0}} />
             </div>
 
-            <div style={{display:"flex",gap:"12px",justifyContent:"center"}}>
+            {/* Controls */}
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1.2fr 1fr", gap:"8px", marginBottom:"8px"}}>
               <button onClick={() => seek(time - 10)} style={ctrlBtn}>−10s</button>
-              <button onClick={handlePlayPause}
-                style={{...ctrlBtn,background:playing?"#FF6B6B":"#6BCB77",color:"#000",width:"80px",fontWeight:"700"}}>
-                {playing ? "⏸ PAUSE" : "▶ PLAY"}
+              <button onClick={handlePlayPause} style={{...ctrlBtn, background:playing ? T.magenta : T.green, color:T.ink}}>
+                <span style={{marginRight:"6px"}}>{playing ? "⏸" : "▶"}</span>{playing ? "PAUSA" : "PLAY"}
               </button>
               <button onClick={() => seek(time + 10)} style={ctrlBtn}>+10s</button>
             </div>
-            <div style={{display:"flex",gap:"8px",justifyContent:"center",marginTop:"10px",alignItems:"center"}}>
+            <div style={{display:"grid", gridTemplateColumns:"1fr auto 1fr", gap:"8px", alignItems:"center"}}>
               <button onClick={() => changePart(currentPart - 1)} disabled={currentPart <= 1}
-                style={{...ctrlBtn,opacity:currentPart<=1?0.3:1,fontSize:"10px",padding:"6px 10px"}}>← P{currentPart - 1}</button>
-              <span style={{fontSize:"10px",color:"#555",letterSpacing:"2px",padding:"0 6px"}}>PARTE {currentPart}</span>
+                style={{...ctrlBtn, opacity:currentPart<=1 ? 0.45 : 1, fontSize:"12px", padding:"8px 0", boxShadow:currentPart<=1?"none":`3px 3px 0 ${T.ink}`}}>
+                ← P{currentPart - 1}
+              </button>
+              <span style={{fontFamily:"'VT323', monospace", fontSize:"14px", letterSpacing:"0.18em", color:T.ink, textTransform:"uppercase"}}>PARTE {currentPart}</span>
               <button onClick={() => changePart(currentPart + 1)}
-                style={{...ctrlBtn,fontSize:"10px",padding:"6px 10px"}}>P{currentPart + 1} →</button>
+                style={{...ctrlBtn, fontSize:"12px", padding:"8px 0"}}>
+                P{currentPart + 1} →
+              </button>
             </div>
           </div>
 
-          <div ref={feedRef} style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:"10px",minHeight:"200px",maxHeight:"320px"}}>
+          {/* Comments feed */}
+          <div ref={feedRef} style={{flex:1, overflowY:"auto", padding:"10px 14px", display:"flex", flexDirection:"column", gap:"8px", minHeight:"160px", maxHeight:"280px"}}>
             {visibleComments.length === 0 && (
-              <div style={{color:"#333",fontSize:"12px",textAlign:"center",marginTop:"40px",letterSpacing:"1px"}}>
-                Los comentarios aparecerán cuando llegues a su momento…
+              <div style={{color:T.muted, fontFamily:"'VT323', monospace", fontSize:"14px", textAlign:"center", marginTop:"40px", letterSpacing:"0.1em"}}>
+                los comentarios aparecerán cuando llegues a su momento…
               </div>
             )}
             {visibleComments.map(c => {
               const isReaction = REACTIONS.includes(c.text);
               return isReaction ? (
-                <div key={c.id} style={{display:"flex",alignItems:"center",gap:"8px",animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
-                  <span style={{fontSize:"22px"}}>{c.text}</span>
-                  <span style={{fontSize:"10px",color:c.color,fontWeight:"700"}}>{c.user_name}</span>
-                  <span style={{fontSize:"10px",color:"#444",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
+                <div key={c.id} style={{display:"flex", alignItems:"center", gap:"8px", animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
+                  <span style={{fontSize:"20px"}}>{c.text}</span>
+                  <span style={{fontSize:"12px", color:T.cyan, fontWeight:700}}>{c.user_name}</span>
+                  <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
                 </div>
               ) : (
-                <div key={c.id} style={{display:"flex",gap:"10px",alignItems:"flex-start",animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
-                  <div style={{width:"28px",height:"28px",borderRadius:"50%",background:c.color,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:"#000"}}>
-                    {c.user_name[0].toUpperCase()}
+                <div key={c.id} style={{animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
+                  <div style={{display:"flex", alignItems:"center", gap:"8px", marginBottom:"2px"}}>
+                    <span style={{width:"22px", height:"22px", borderRadius:"50%", background:T.cyan, color:T.ink, display:"inline-flex", alignItems:"center", justifyContent:"center", fontFamily:"'Bungee', sans-serif", fontSize:"11px", border:`1.5px solid ${T.ink}`, flexShrink:0}}>
+                      {c.user_name[0].toUpperCase()}
+                    </span>
+                    <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
+                    <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
                   </div>
-                  <div style={{flex:1}}>
-                    <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"3px"}}>
-                      <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
-                      <span style={{fontSize:"10px",color:"#444",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
-                    </div>
-                    <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
-                  </div>
+                  <div style={{fontSize:"14px", color:T.ink, lineHeight:"1.35", paddingLeft:"30px"}}>{c.text}</div>
                 </div>
               );
             })}
           </div>
 
-          <div style={{padding:"12px 20px",borderTop:"1px solid #1a1a1a",display:"flex",flexDirection:"column",gap:"8px"}}>
-            <div style={{display:"flex",gap:"6px"}}>
+          {/* Emoji bar + comment input */}
+          <div style={{borderTop:`2px solid ${T.ink}`, background:T.paperDeep}}>
+            <div style={{padding:"10px 12px 0", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px"}}>
               {REACTIONS.map(emoji => (
                 <button key={emoji} onClick={() => postReaction(emoji)}
-                  style={{background:"#111",border:"1px solid #222",borderRadius:"6px",padding:"6px 12px",fontSize:"16px",cursor:"pointer",flex:1}}>
+                  style={{padding:"8px 0", background:T.paper, border:`2px solid ${T.ink}`, boxShadow:`2px 2px 0 ${T.ink}`, fontSize:"20px", cursor:"pointer", borderRadius:0}}>
                   {emoji}
                 </button>
               ))}
             </div>
-            <div style={{display:"flex",gap:"10px"}}>
-              <div style={{fontSize:"10px",color:"#444",alignSelf:"center",whiteSpace:"nowrap",letterSpacing:"1px"}}>{formatTime(time)}</div>
-              <input ref={inputRef} style={{...inputStyle,flex:1,margin:0}}
-                placeholder="Comenta en este momento…"
+            <div style={{padding:"10px 12px", display:"flex", gap:"8px", alignItems:"center"}}>
+              <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted, letterSpacing:"0.08em", whiteSpace:"nowrap"}}>{formatTime(time)}</span>
+              <input ref={inputRef} style={{...inputStyle, flex:1, margin:0, padding:"8px 12px", fontSize:"14px", boxShadow:`2px 2px 0 ${T.ink}`}}
+                placeholder="comenta en este momento…"
                 value={newComment} onChange={e => setNewComment(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && postComment()} />
-              <button onClick={postComment} style={{...btnStyle,background:"#FFD93D",color:"#000",padding:"8px 14px",flexShrink:0,width:"auto"}}>→</button>
+              <button onClick={postComment} style={{...ctrlBtn, padding:"8px 14px", flexShrink:0, fontSize:"18px"}}>→</button>
             </div>
           </div>
         </>
       )}
 
       {tab === "timeline" && (
-        <div style={{flex:1,overflowY:"auto",padding:"20px"}}>
+        <div style={{flex:1, overflowY:"auto"}}>
+          {/* Meta row */}
+          <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", borderBottom:`2px solid ${T.ink}`, background:T.paper}}>
+            <div style={{fontFamily:"'VT323', monospace", fontSize:"13px", letterSpacing:"0.16em", color:T.ink2, textTransform:"uppercase"}}>
+              TODOS LOS COMENTARIOS · <span style={{color:T.ink, fontWeight:"bold"}}>{comments.length} EN TOTAL</span>
+            </div>
+            <button onClick={() => shareTimeline(roomCode, roomTitle, comments)}
+              style={{display:"inline-flex", alignItems:"center", gap:"6px", padding:"5px 11px", background:T.cyan, color:T.ink, border:`2px solid ${T.ink}`, boxShadow:`2px 2px 0 ${T.ink}`, fontFamily:"'Familjen Grotesk', system-ui, sans-serif", fontSize:"12px", fontWeight:600, cursor:"pointer", borderRadius:0}}>
+              📋 compartir
+            </button>
+          </div>
+
           {comments.length === 0 ? (
-            <div style={{color:"#333",fontSize:"12px",textAlign:"center",marginTop:"60px",letterSpacing:"1px"}}>
-              Aún no hay comentarios en esta sala
+            <div style={{color:T.muted, fontFamily:"'VT323', monospace", fontSize:"14px", textAlign:"center", marginTop:"60px", letterSpacing:"0.1em"}}>
+              aún no hay comentarios en esta sala
             </div>
           ) : (
-            <>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
-                <div style={{fontSize:"10px",letterSpacing:"3px",color:"#333"}}>
-                  TODOS LOS COMENTARIOS · {comments.length} en total
-                </div>
-                <button onClick={() => shareTimeline(roomCode, roomTitle, comments)}
-                  style={{background:"none",border:"1px solid #222",color:"#555",borderRadius:"4px",padding:"4px 10px",fontSize:"10px",cursor:"pointer",letterSpacing:"1px",fontFamily:"'Courier New', monospace",display:"flex",alignItems:"center",gap:"6px"}}>
-                  📲 compartir
-                </button>
-              </div>
+            <div style={{position:"relative", padding:"14px 14px 14px 28px"}}>
+              {/* vertical dashed rule */}
+              <div style={{position:"absolute", top:14, bottom:14, left:18, width:2, background:`repeating-linear-gradient(to bottom, ${T.ink} 0 6px, transparent 6px 10px)`}}/>
 
-              <div style={{display:"flex",flexDirection:"column"}}>
-                {commentParts.map(part => {
-                  const pc = comments.filter(c => (c.part || 1) === part);
-                  return (
-                    <div key={part}>
-                      {multiPart && (
-                        <div style={{display:"flex",alignItems:"center",gap:"10px",margin:"8px 0 12px",opacity:0.5}}>
-                          <div style={{flex:1,height:"1px",background:"#1a1a1a"}}></div>
-                          <span style={{fontSize:"10px",letterSpacing:"3px",color:"#FFD93D"}}>PARTE {part}</span>
-                          <div style={{flex:1,height:"1px",background:"#1a1a1a"}}></div>
-                        </div>
-                      )}
-                      {pc.map((c, i) => {
-                        const isReaction = REACTIONS.includes(c.text);
-                        return (
-                          <div key={c.id} style={{display:"flex",gap:"0",position:"relative"}}>
-                            <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:"40px",flexShrink:0}}>
-                              <div style={{width:"2px",flex:"0 0 12px",background:i===0?"transparent":"#1a1a1a"}}></div>
-                              <div style={{width:"10px",height:"10px",borderRadius:"50%",background:c.color,flexShrink:0}}></div>
-                              <div style={{width:"2px",flex:1,minHeight:"20px",background:i===pc.length-1?"transparent":"#1a1a1a"}}></div>
-                            </div>
-                            <div style={{flex:1,padding:"0 0 20px 12px"}}>
-                              <div style={{display:"flex",alignItems:"baseline",gap:"8px",marginBottom:"4px"}}>
-                                <span style={{fontSize:"11px",fontWeight:"700",color:c.color}}>{c.user_name}</span>
-                                <span style={{fontSize:"10px",color:"#555",letterSpacing:"1px"}}>{formatTime(c.timestamp)}</span>
-                              </div>
-                              {isReaction
-                                ? <span style={{fontSize:"20px"}}>{c.text}</span>
-                                : <div style={{fontSize:"13px",color:"#ccc",lineHeight:"1.5"}}>{c.text}</div>
-                              }
-                            </div>
+              {commentParts.map(part => {
+                const pc = comments.filter(c => (c.part || 1) === part);
+                return (
+                  <div key={part}>
+                    {multiPart && (
+                      <div style={{display:"flex", alignItems:"center", gap:"10px", margin:"8px 0 12px", paddingLeft:"18px"}}>
+                        <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", letterSpacing:"0.22em", color:T.yellow, textTransform:"uppercase"}}>── PARTE {part} ──</span>
+                      </div>
+                    )}
+                    {pc.map((c) => {
+                      const isReaction = REACTIONS.includes(c.text);
+                      return (
+                        <div key={c.id} style={{position:"relative", paddingLeft:"18px", marginBottom:"14px"}}>
+                          {/* diamond marker */}
+                          <div style={{position:"absolute", left:"-18px", top:"4px", width:"14px", height:"14px", background:T.magenta, border:`2px solid ${T.ink}`, transform:"rotate(45deg)"}}/>
+                          <div style={{display:"flex", alignItems:"center", gap:"8px", marginBottom:"2px"}}>
+                            <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
+                            <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+                          {isReaction
+                            ? <span style={{fontSize:"20px"}}>{c.text}</span>
+                            : <div style={{fontSize:"14px", color:T.ink, lineHeight:"1.35"}}>{c.text}</div>
+                          }
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
 
-      <style>{`
-        @keyframes popIn {
-          from { opacity:0; transform: translateY(8px) scale(0.95); }
-          to { opacity:1; transform: translateY(0) scale(1); }
-        }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #0a0a0f; }
-        ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
-      `}</style>
+      <style>{globalStyles}</style>
     </div>
   );
 }
 
-const labelStyle = { display:"block", fontSize:"10px", letterSpacing:"3px", color:"#555", textTransform:"uppercase", marginBottom:"6px" };
-const inputStyle = { width:"100%", background:"#111", border:"1px solid #222", borderRadius:"6px", padding:"10px 12px", color:"#fff", fontSize:"13px", fontFamily:"'Courier New', monospace", outline:"none", boxSizing:"border-box" };
-const btnStyle = { width:"100%", border:"none", borderRadius:"6px", padding:"10px", fontSize:"12px", fontWeight:"700", letterSpacing:"2px", cursor:"pointer", fontFamily:"'Courier New', monospace" };
-const cardStyle = { background:"#0f0f16", border:"1px solid #1a1a1a", borderRadius:"10px", padding:"16px" };
-const ctrlBtn = { background:"#111", border:"1px solid #222", color:"#888", borderRadius:"6px", padding:"8px 14px", fontSize:"11px", letterSpacing:"2px", cursor:"pointer", fontFamily:"'Courier New', monospace" };
+const labelStyle = {
+  display: "block",
+  fontFamily: "'VT323', monospace",
+  fontSize: "13px",
+  letterSpacing: "0.18em",
+  color: T.ink2,
+  textTransform: "lowercase",
+  marginBottom: "6px",
+  marginTop: "14px",
+};
+const inputStyle = {
+  width: "100%",
+  background: T.paperDeep,
+  border: `2px solid ${T.ink}`,
+  padding: "12px 14px",
+  color: T.ink,
+  fontSize: "15px",
+  fontFamily: "'Familjen Grotesk', system-ui, sans-serif",
+  outline: "none",
+  boxSizing: "border-box",
+  boxShadow: `3px 3px 0 ${T.ink}`,
+  borderRadius: 0,
+};
+const btnStyle = {
+  width: "100%",
+  border: `2px solid ${T.ink}`,
+  padding: "14px 16px",
+  fontSize: "18px",
+  fontFamily: "'Bungee', sans-serif",
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  cursor: "pointer",
+  boxShadow: `3px 3px 0 ${T.ink}`,
+  borderRadius: 0,
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+const ctrlBtn = {
+  background: T.paper,
+  color: T.ink,
+  border: `2px solid ${T.ink}`,
+  padding: "10px 0",
+  fontSize: "14px",
+  letterSpacing: "0.04em",
+  cursor: "pointer",
+  fontFamily: "'Bungee', sans-serif",
+  textTransform: "uppercase",
+  boxShadow: `3px 3px 0 ${T.ink}`,
+  borderRadius: 0,
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const globalStyles = `
+  .vhsx-glitch {
+    text-shadow:
+      1.5px 0 0 rgba(224,48,107,0.85),
+      -1.5px 0 0 rgba(42,165,184,0.85);
+  }
+  .vhsx-blink::after {
+    content: '▍'; margin-left: 2px;
+    animation: vhsxblink 1s steps(2) infinite;
+    color: #e0306b;
+  }
+  @keyframes vhsxblink { 50% { opacity: 0; } }
+  @keyframes popIn {
+    from { opacity:0; transform: translateY(6px) scale(0.97); }
+    to { opacity:1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vhsx-glitch { text-shadow: none; }
+    .vhsx-blink::after { animation: none; }
+  }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #ecd9c2; }
+  ::-webkit-scrollbar-thumb { background: #8e6f86; }
+  input::placeholder { color: #8e6f86; }
+`;
