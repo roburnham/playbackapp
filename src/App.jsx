@@ -296,8 +296,9 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
   const inputRef = useRef(null);
   const timeRef = useRef(0);
   const playingRef = useRef(false);
-  const [currentPart, setCurrentPart] = useState(1);
-  const currentPartRef = useRef(1);
+  const PART_KEY = `playback_part_${roomCode}`;
+  const [currentPart, setCurrentPart] = useState(() => Number(localStorage.getItem(PART_KEY)) || 1);
+  const currentPartRef = useRef(currentPart);
   const TIMER_KEY = `playback_timer_${roomCode}`;
 
   const fetchComments = useCallback(async () => {
@@ -311,25 +312,10 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     return () => clearInterval(poll);
   }, [fetchComments]);
 
-  const fetchRoom = useCallback(async () => {
-    const data = await apiGet(`rooms?id=eq.${roomCode}&select=current_part`);
-    if (Array.isArray(data) && data[0]) {
-      const newPart = data[0].current_part || 1;
-      if (newPart !== currentPartRef.current) {
-        currentPartRef.current = newPart;
-        setCurrentPart(newPart);
-        localStorage.removeItem(TIMER_KEY);
-        setTime(0);
-        setPlaying(false);
-      }
-    }
-  }, [roomCode]);
-
-  useEffect(() => {
-    fetchRoom();
-    const poll = setInterval(fetchRoom, 3000);
-    return () => clearInterval(poll);
-  }, [fetchRoom]);
+  // La parte es local de cada persona (se guarda en localStorage por sala). Ya NO se lee ni
+  // sincroniza rooms.current_part, para que el cambio de parte de otra persona no se imponga.
+  // Los comentarios siguen bajándose enteros y compartidos (ver fetchComments) — esto solo
+  // decide qué parte ves y con qué parte publicas.
 
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem(TIMER_KEY) || "null");
@@ -409,11 +395,13 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     }
   };
 
-  const changePart = async (newPart) => {
+  // Cambio de parte local: solo actualiza a esta persona y reinicia su timer. Se persiste en
+  // localStorage para sobrevivir a recargas. No escribe rooms.current_part (no arrastra a la sala).
+  const changePart = (newPart) => {
     if (newPart < 1) return;
-    await apiPatch(`rooms?id=eq.${roomCode}`, { current_part: newPart });
     currentPartRef.current = newPart;
     setCurrentPart(newPart);
+    localStorage.setItem(PART_KEY, String(newPart));
     localStorage.removeItem(TIMER_KEY);
     setTime(0);
     setPlaying(false);
