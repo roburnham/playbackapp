@@ -34,6 +34,12 @@ async function apiPatch(path, body) {
     body: JSON.stringify(body),
   });
 }
+async function apiDelete(path) {
+  await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: "DELETE",
+    headers: { ...headers, "Prefer": "return=minimal" },
+  });
+}
 
 const COLORS = ["#FF6B6B","#FFD93D","#6BCB77","#4D96FF","#C77DFF","#FF9F43","#48DBFB","#FF9FF3"];
 const REACTIONS = ["😍","😭","😂","😱"];
@@ -431,6 +437,13 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
     inputRef.current?.focus();
   };
 
+  const deleteComment = async (c) => {
+    if (!confirm(`¿Borrar el comentario de ${c.user_name}?`)) return;
+    setComments(prev => prev.filter(x => x.id !== c.id));
+    await apiDelete(`comments?id=eq.${c.id}&room_id=eq.${roomCode}`);
+    fetchComments();
+  };
+
   const MAX_TIME = maxTime;
   const visibleComments = comments.filter(c => (c.part || 1) === currentPart && c.timestamp <= time);
   const commentParts = [...new Set(comments.map(c => c.part || 1))].sort((a, b) => a - b);
@@ -587,6 +600,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                   <span style={{fontSize:"20px"}}>{c.text}</span>
                   <span style={{fontSize:"12px", color:T.cyan, fontWeight:700}}>{c.user_name}</span>
                   <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
+                  <button onClick={() => deleteComment(c)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"12px", padding:"0 2px", lineHeight:1}} title="Borrar">🗑</button>
                 </div>
               ) : (
                 <div key={c.id} style={{animation:newVisible.includes(c.id)?"popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)":"none"}}>
@@ -597,6 +611,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                     <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
                     <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
                     <button onClick={() => shareComment(c, roomTitle)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"13px", padding:"0 2px", lineHeight:1}} title="Compartir por WhatsApp">↗</button>
+                    <button onClick={() => deleteComment(c)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"12px", padding:"0 2px", lineHeight:1}} title="Borrar">🗑</button>
                   </div>
                   <div style={{fontSize:"14px", color:T.ink, lineHeight:"1.35", paddingLeft:"30px"}}>{c.text}</div>
                 </div>
@@ -667,6 +682,7 @@ function WatchScreen({ userName, roomCode, roomTitle, maxTime, onExit }) {
                             <span style={{fontSize:"13px", fontWeight:700, color:T.cyan}}>{c.user_name}</span>
                             <span style={{fontFamily:"'VT323', monospace", fontSize:"13px", color:T.muted}}>{formatTime(c.timestamp)}</span>
                             <button onClick={() => shareComment(c, roomTitle)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"13px", padding:"0 2px", lineHeight:1}} title="Compartir por WhatsApp">↗</button>
+                            <button onClick={() => deleteComment(c)} style={{background:"none", border:"none", color:T.muted, cursor:"pointer", fontSize:"12px", padding:"0 2px", lineHeight:1}} title="Borrar">🗑</button>
                           </div>
                           {isReaction
                             ? <span style={{fontSize:"20px"}}>{c.text}</span>
